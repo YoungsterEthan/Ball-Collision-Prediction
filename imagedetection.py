@@ -4,6 +4,7 @@ import torchvision.models.detection as detection
 from PIL import Image
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import cv2
 
 # Load the pre-trained model
 model = detection.fasterrcnn_resnet50_fpn(pretrained=True)
@@ -17,25 +18,19 @@ def load_image(image_path):
     return img
 
 # Function to display image and bounding boxes
-def display_image_with_boxes(image, boxes, labels):
-    # Convert tensor image to PIL for easy display
-    img = transforms.ToPILImage()(image).convert("RGB")
-    plt.figure(figsize=(12, 8))
-    plt.imshow(img)
-
-    ax = plt.gca()
+def display_image_with_boxes(frame, boxes, labels):
     for box, label in zip(boxes, labels):
         x, y, x2, y2 = box
-        rect = patches.Rectangle((x, y), x2-x, y2-y, linewidth=2, edgecolor='r', facecolor='none')
-        ax.add_patch(rect)
-        plt.text(x, y, f'Label: {label}', bbox=dict(facecolor='red', alpha=0.5))
-    
-    plt.axis("off")
-    plt.show()
+        cx = int((x + x2) / 2)
+        cy = int((y + y2) / 2)
+        cv2.circle(frame, (cx, cy), 20, (0, 0, 255), 4)
+
+
 
 # Main program to load an image, run the model, and display the results
 def main(image_path):
     image = load_image(image_path)
+    print(image)
     with torch.no_grad():
         prediction = model([image])
 

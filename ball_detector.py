@@ -2,27 +2,37 @@
 import cv2
 import numpy as np
 from torchvision.models import ResNet
-
+import torch
 class BallDetector:
-    def __init__(self, low, high):
-        # Create mask for orange color
-        self.low = low
-        self.high = high
+    def __init__(self):
+        pass
 
-    def detect(self, frame):
-        hsv_img = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    def preprocess_frame(self, frame):
+        # Convert BGR (OpenCV) to RGB
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        # Convert the numpy array frame to a torch tensor and add a batch dimension ([H, W, C] to [C, H, W])
+        frame_tensor = torch.from_numpy(frame_rgb).permute(2, 0, 1).float()
+        # Normalize pixel values to [0, 1]
+        frame_tensor /= 255.0
+        return frame_tensor.unsqueeze(0)  # Add batch dimension
 
-        # Create masks with color ranges
-        mask = cv2.inRange(hsv_img, self.low, self.high)
+    def detect(self, frame, model):
+        # Convert BGR (OpenCV) to RGB
+        frame_tensor = self.preprocess_frame(frame)
+        # print(frame_tensor)
+        # Perform detection
+        with torch.no_grad():
+            prediction = model(frame_tensor)
 
-        # Find Contours
-        contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contours = sorted(contours, key=lambda x: cv2.contourArea(x), reverse=True)
+        # Extract boxes and labels from the prediction
+        boxes = prediction[0]['boxes'].detach().numpy()
+        labels = prediction[0]['labels'].detach().numpy()
+        scores = prediction[0]['scores'].detach().numpy()
 
-        box = (0, 0, 0, 0)
-        for cnt in contours:
-            (x, y, w, h) = cv2.boundingRect(cnt)
-            box = (x, y, x + w, y + h)
-            break
+        # Adjust the confidence threshold if needed
+        confidence_threshold = 0.5  # Lowered to 0.5 for testing
+        high_confidence_indices = scores > confidence_threshold
+        boxes = boxes[high_confidence_indices]
+        labels = labels[high_confidence_indices]
 
-        return box
+        return boxes, labels
